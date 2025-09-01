@@ -5,7 +5,9 @@ namespace ak
 {
 	Crawler::Crawler(const GeneralState& state) : state_(state)
 	{
-		stopped_ = false;
+		hostCount_.store(0);
+		stopped_.store(false);
+
 		runThreadPull_();
 		recreatePostgresDbTables_();
 
@@ -20,36 +22,32 @@ namespace ak
 
 	Crawler::~Crawler()
 	{
-		if (!stopped_) stop();
+		if (!stopped_.load()) stop();
 	}
 
 	void Crawler::parseHost(const Host host)
 	{
-		if (stopped_) return;
-
-		auto downloadedHostData{ downloadHostData_(host) };
-		auto indexedHostData{ indexHostData_(host, std::cref(downloadedHostData)) };
-		insertPostgresDbIndexedHostData_(std::cref(indexedHostData));
-
-		if (host.level < state_.searchDepth)
+		if ((host.level >= state_.searchDepth)
+			|| (hostCount_.load() >= state_.searchLimit))
 		{
-			for (const auto& indexedHost : indexedHostData.indexedHosts)
-			{
-				upThreadPull_->submit(std::bind(&Crawler::parseHost, this, indexedHost));
-				//parseHost(indexedHost);
-			}
+			stopped_.store(true);
+			return;
 		}
 
+		auto downloadedHostData{ downloadHostData_(host) };
+		auto indexedHostData{ indexHostData_(host, downloadedHostData) };
+		insertPostgresDbIndexedHostData_(indexedHostData);
+		hostCount_++;
+
 		std::stringstream strS{};
-		strS << "Crawler::parseHost: хост " << ++hostCount_ << " отработан, адрес " << indexedHostData.httpsHostWithParams;
+		strS << "Crawler::parseHost: уровень " << (host.level + 1) << ", хост " << hostCount_.load()
+			<< " отработан, адрес " << indexedHostData.httpsHostWithParams;
 		postLogMessage(strS.str());
 
-		if (host.level == (state_.searchDepth - 1)
-			|| (hostCount_ >= state_.searchLimit)
-			|| (!indexedHostData.indexedHosts.size()))
+		for (const auto& indexedHost : indexedHostData.indexedHosts)
 		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(workTimeout));
-			stopped_ = true;
+			upThreadPull_->submit(std::bind(&Crawler::parseHost, this, indexedHost));
+			//parseHost(indexedHost);
 		}
 	}
 
@@ -57,17 +55,17 @@ namespace ak
 	{
 		while (true)
 		{
-			std::this_thread::sleep_for(std::chrono::milliseconds(workTimeout));
-
-			if (stopped_) { break; }
+			if (stopped_.load()) { break; }
 		}
+
+		std::this_thread::sleep_for(std::chrono::milliseconds(workTimeout));
 		stop();
 	}
 
 	void Crawler::stop()
 	{
 		stopThreadPull_();
-		stopped_ = true;
+		stopped_.store(true);
 
 		postLogMessage("Crawler::stop: краулер остановлен");
 	}
@@ -102,7 +100,7 @@ namespace ak
 	IndexedHostData Crawler::indexHostData_(const Host host, const std::string& downloadedHostData)
 	{
 		IndexedHostData ret{};
-		ret.level = host.level + 1;
+		ret.level = host.level;
 		ret.httpsHostWithParams = host.httpsHost + host.httpsHostParams;
 
 		std::string str{ downloadedHostData }, tempStr{}, ref{};
@@ -124,10 +122,7 @@ namespace ak
 			ret.indexedTitle = ret.indexedTitle.substr(0, 210);
 		}
 
-		// 3. Приведение к нижнему регистру
-		str = toLower(str);
-
-		// 4. Выгрузка абсолютных ссылок HTTPS
+		// 3. Выгрузка абсолютных ссылок HTTPS
 		tempStr = str;
 		while (true)
 		{
@@ -151,7 +146,7 @@ namespace ak
 				});
 		}
 
-		// 5. Выгрузка относительных ссылок HTTPS
+		// 4. Выгрузка относительных ссылок HTTPS
 		tempStr = str;
 		while (true)
 		{
@@ -175,21 +170,22 @@ namespace ak
 				});
 		}
 
-		// 6. Отсечение до тела страницы
+		// 5. Отсечение до тела страницы
 		start = str.find("<body>", 0);
 		end = str.find("</body>", start);
 		str = str.substr(start + 6, end - (start + 6));
 
-		// 7. Очистка текста до русских букв и пробелов
+		// 6. Приведение к нижнему регистру и очистка текста до русских букв и пробелов
+		str = toLower(str);
 		str = toCyrillicWords(str);
-		int strSize{};
+		size_t strSize{};
 		do
 		{
 			strSize = str.size();
 			str = findAndReplaceRegex(str, "  ", " ");
 		} while (strSize != str.size());
 
-		// 8. Выгрузка карты слов длиной от 3 до 32 символов включительно
+		// 7. Выгрузка карты слов длиной от 3 до 32 символов включительно
 		std::stringstream strS{ str };
 		std::vector<std::string> indexedWords{};
 		std::string word{};

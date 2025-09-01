@@ -206,8 +206,82 @@ namespace ak
 				words[word] = word_frequency;
 			}
 		}
+		upWork_->commit();
 
 		//postLogMessage("PostgresDBClient::getHostWords: ok");
 		return words;
+	}
+
+	std::map<uint32_t, uint32_t> PostgresDBClient::getWordHostsIdFrequency(const std::string& word)
+	{
+		std::map<uint32_t, uint32_t> ret{};
+
+		std::string str1 = "SELECT hosts.id, words.id FROM hosts_words "
+			"LEFT JOIN hosts ON hosts.id = hosts_words.host_id "
+			"LEFT JOIN words ON words.id = hosts_words.word_id "
+			"WHERE words.word = '" + word +
+			"';";
+
+		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
+		for (const auto& [host_id, word_id] : upWork_->query<uint32_t, uint32_t>(str1))
+		{
+			for (const auto& [word_frequency] : upWork_->query<uint32_t>
+				("SELECT word_frequency FROM hosts_words "
+					"WHERE host_id = " + std::to_string(host_id) +
+					" AND word_id = " + std::to_string(word_id) +
+					";"))
+			{
+				ret[host_id] = word_frequency;
+			}
+		}
+		upWork_->commit();
+
+		//postLogMessage("PostgresDBClient::getWordsHostsIdFrequency: ok");
+		return ret;
+	}
+
+	SearchResult PostgresDBClient::getHost(uint32_t hostId)
+	{
+		SearchResult ret{};
+
+		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
+		for (const auto& [host, host_title] : upWork_->query<std::string, std::string>
+			("SELECT host, host_title FROM hosts "
+				"WHERE id = " + std::to_string(hostId) +
+				";"))
+		{
+			ret.host = host;
+			ret.hostTitle = host_title;
+		}
+		upWork_->commit();
+
+		return ret;
+	}
+
+	std::map<uint32_t, SearchResult> PostgresDBClient::getSearchResults(const std::set<std::string>& searchWords)
+	{
+		std::map<uint32_t, SearchResult> ret{};       // <rating, search_result>
+		std::map<uint32_t, SearchResult> tempHost{};  // <host_id, search_result>
+		std::map<uint32_t, uint32_t> tempRating{};    // <host_id, rating>
+
+		for (const auto& searchWord : searchWords)
+		{
+			auto hostsIdFrequency = getWordHostsIdFrequency(searchWord);
+			for (const auto& [host_id, rating] : hostsIdFrequency)
+			{
+				tempRating[host_id] += rating;
+				tempHost[host_id].searchWordsCount++;
+			}
+		}
+
+		for (const auto& [host_id, rating] : tempRating)
+		{
+			if (tempHost[host_id].searchWordsCount == searchWords.size())
+			{
+				ret[rating] = getHost(host_id);
+			}
+		}
+
+		return ret;
 	}
 }

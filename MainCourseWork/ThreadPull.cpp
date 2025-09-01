@@ -9,7 +9,7 @@ namespace ak
 		strS << "ThreadPull::ThreadPull: пул потоков запущен, ширина " << threadsCount << " потока";
 		postLogMessage(strS.str());
 
-		stopped_ = false;
+		stopped_.store(false);
 		for (uint32_t idx{}; idx < threadsCount; idx++)
 		{
 			threads_.emplace_back([this]() { work_(); });
@@ -18,7 +18,7 @@ namespace ak
 
 	ThreadPull::~ThreadPull()
 	{
-		if (!stopped_) stop();
+		if (!stopped_.load()) stop();
 	}
 
 	void ThreadPull::submit(UniqueFunction function)
@@ -28,7 +28,7 @@ namespace ak
 
 	void ThreadPull::stop()
 	{
-		stopped_ = true;
+		stopped_.store(true);
 		for (auto& thread : threads_)
 		{
 			thread.detach();
@@ -42,14 +42,11 @@ namespace ak
 		while (true)
 		{
 			auto func = safeThreadQueue_.pop();
-
-			//std::unique_lock<std::mutex> ulMtx(mtx_);
-			//ulMtx.unlock();
-
 			func();
+
 			workCount_++;
 
-			if (stopped_) { break; }
+			if (stopped_.load()) { break; }
 		}
 	}
 }

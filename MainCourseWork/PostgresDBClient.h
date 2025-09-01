@@ -5,6 +5,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <map>
 #include <tuple>
 
 #include "shared.h"
@@ -30,6 +31,9 @@ namespace ak
 		void bindWordsToHost(const std::string& host, const std::map<std::string, uint32_t>& words);
 		void addHostAndWords(const std::string& host, const std::string& hostTitle, const std::map<std::string, uint32_t>& words);
 		std::map<std::string, uint32_t> getHostWords(const std::string& host);
+		std::map<uint32_t, uint32_t> getWordHostsIdFrequency(const std::string& word);
+		SearchResult getHost(uint32_t hostId);
+		std::map<uint32_t, SearchResult> getSearchResults(const std::set<std::string>& searchWords);
 
 	private:
 		std::unique_ptr<pqxx::connection> upConnection_{};

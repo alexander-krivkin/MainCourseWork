@@ -27,7 +27,7 @@ namespace ak
         
         http::request<http::string_body> request{ http::verb::get, host.httpsHostParams, 11 };
         request.set(http::field::host, host.httpsHost);
-        request.set(http::field::user_agent, userAgentName);
+        request.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
 
         http::write(stream, request);
         beast::flat_buffer buffer{};

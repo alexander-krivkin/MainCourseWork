@@ -39,8 +39,9 @@ namespace ak
 
 		std::unique_ptr<ThreadPull> upThreadPull_{};
 
-		std::atomic<int> hostCount_{};
-		std::atomic<bool> stopped_{ true };
+		std::atomic<uint32_t> hostCount_;
+		std::atomic<bool> stopped_;
 		GeneralState state_{};
+		//mutable std::mutex mtx_{};
 	};
 }

@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <thread>
+#include <atomic>
 #include <functional>
 #include <future>
 #include <chrono>
@@ -34,8 +35,7 @@ namespace ak
 		std::vector<std::jthread> threads_{};
 		SafeThreadQueue<UniqueFunction> safeThreadQueue_{};
 
-		std::atomic<int> workCount_{};
+		std::atomic<uint32_t> workCount_{};
 		std::atomic<bool> stopped_{ true };
-		//mutable std::mutex mtx_{};
 	};
 }

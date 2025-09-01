@@ -16,8 +16,7 @@
 namespace ak
 {
 	constexpr auto configFilename{ "config.ini" };
-	constexpr auto userAgentName{ "Mozilla / 5.0 (X11; Linux x86_64; rv:86.0) Gecko / 20100101 Firefox / 86.0" };
-	constexpr uint32_t workTimeout{ 1000 };
+	constexpr uint32_t workTimeout{ 5000 };
 	constexpr uint32_t deadlockTimeout{ 5000 };
 
 	struct GeneralState
@@ -37,7 +36,6 @@ namespace ak
 		std::string dbPassword{};
 	};
 
-
 	struct PostgresDb
 	{
 		std::string dbHost{};
@@ -56,8 +54,14 @@ namespace ak
 
 		bool operator <(const Host& obj) const
 		{
-			return ((httpsHost <= obj.httpsHost) ?
-				(httpsHostParams < obj.httpsHostParams) : false);
+			if (httpsHost != obj.httpsHost)
+			{
+				return (httpsHost < obj.httpsHost);
+			}
+			else
+			{
+				return (httpsHostParams < obj.httpsHostParams);
+			}
 		}
 	};
 
@@ -74,6 +78,13 @@ namespace ak
 		std::string indexedTitle{};
 		std::set<Host> indexedHosts{};
 		std::map<std::string, uint32_t> indexedWords{};
+	};
+
+	struct SearchResult
+	{
+		std::string host{};
+		std::string hostTitle{};
+		uint32_t searchWordsCount{};
 	};
 
 	inline std::string utf8ToCp1251(std::string const& str)
@@ -100,6 +111,14 @@ namespace ak
 		{
 			return { "" };
 		}
+	}
+
+	inline std::string findAndReplaceRegex(const std::string& str, const std::string& regex,
+		const std::string& replaceStr)
+	{
+		if (str == "") { return ""; }
+
+		return std::regex_replace(str, std::regex(regex), replaceStr);
 	}
 
 	inline std::string toLower(const std::string& str)
@@ -222,14 +241,89 @@ namespace ak
 		return ret;
 	}
 
-	inline std::string findAndReplaceRegex(const std::string& str, const std::string& regex,
-		const std::string& replaceStr)
+	inline std::string urlDecode(const std::string& str)
 	{
 		if (str == "") { return ""; }
 
-		return std::regex_replace(str, std::regex(regex), replaceStr);
-	}
+		std::string ret{ str };
 
+		std::map<std::string, std::string> trans
+		{
+			{ "%C0", "À" },
+			{ "%C1", "Á" },
+			{ "%C2", "Â" },
+			{ "%C3", "Ã" },
+			{ "%C4", "Ä" },
+			{ "%C5", "Å" },
+			{ "%A8", "¨" },
+			{ "%C6", "Æ" },
+			{ "%C7", "Ç" },
+			{ "%C8", "È" },
+			{ "%C9", "É" },
+			{ "%CA", "Ê" },
+			{ "%CB", "Ë" },
+			{ "%CC", "Ì" },
+			{ "%CD", "Í" },
+			{ "%CE", "Î" },
+			{ "%CF", "Ï" },
+			{ "%D0", "Ð" },
+			{ "%D1", "Ñ" },
+			{ "%D2", "Ò" },
+			{ "%D3", "Ó" },
+			{ "%D4", "Ô" },
+			{ "%D5", "Õ" },
+			{ "%D6", "Ö" },
+			{ "%D7", "×" },
+			{ "%D8", "Ø" },
+			{ "%D9", "Ù" },
+			{ "%DC", "Ü" },
+			{ "%DB", "Û" },
+			{ "%DA", "Ú" },
+			{ "%DD", "Ý" },
+			{ "%DE", "Þ" },
+			{ "%DF", "ß" },
+			{ "%E0", "à" },
+			{ "%E1", "á" },
+			{ "%E2", "â" },
+			{ "%E3", "ã" },
+			{ "%E4", "ä" },
+			{ "%E5", "å" },
+			{ "%B8", "¸" },
+			{ "%E6", "æ" },
+			{ "%E7", "ç" },
+			{ "%E8", "è" },
+			{ "%E9", "é" },
+			{ "%EA", "ê" },
+			{ "%EB", "ë" },
+			{ "%EC", "ì" },
+			{ "%ED", "í" },
+			{ "%EE", "î" },
+			{ "%EF", "ï" },
+			{ "%F0", "ð" },
+			{ "%F1", "ñ" },
+			{ "%F2", "ò" },
+			{ "%F3", "ó" },
+			{ "%F4", "ô" },
+			{ "%F5", "õ" },
+			{ "%F6", "ö" },
+			{ "%F7", "÷" },
+			{ "%F8", "ø" },
+			{ "%F9", "ù" },
+			{ "%FC", "ü" },
+			{ "%FB", "û" },
+			{ "%FA", "ú" },
+			{ "%FD", "ý" },
+			{ "%FE", "þ" },
+			{ "%FF", "ÿ" }
+		};
+
+		for (const auto& [coded, decoded] : trans)
+		{
+			ret = findAndReplaceRegex(ret, coded, decoded);
+		}
+
+		return ret;
+	}
 
 	inline std::map<std::string, uint32_t> toCounterMap(std::vector<std::string> obj)
 	{
