@@ -118,7 +118,18 @@ namespace ak
 				"VALUES($1) "
 				"ON CONFLICT DO NOTHING;" };
 
-			upWork_->exec(str1, pqxx::params{ word.first });
+			try
+			{
+				upWork_->exec(str1, pqxx::params{ word.first });
+			}
+			catch (const pqxx::data_exception& ex)
+			{
+				std::stringstream strS{};
+				strS << "PostgresDBClient::addWords: не удалось добавить слово" << std::endl
+					<< "ошибка: " << ex.sqlstate() << std::endl
+					<< "запрос: " << ex.query();
+				postLogMessage(strS.str());
+			}
 		}
 		upWork_->commit();
 

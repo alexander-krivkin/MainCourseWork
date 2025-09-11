@@ -5,11 +5,9 @@ namespace ak
 {
 	Searcher::Searcher(const GeneralState& state) : state_(state)
 	{
-		runHTTPServer_();
-
-		std::stringstream strS{};
-		strS << "Searcher::Searcher: поисковик запущен";
-		postLogMessage(strS.str());
+		upThread_ = std::unique_ptr<std::jthread>(
+			new std::jthread(std::bind(&Searcher::runHTTPServer_, this)));
+		// postLogMessage("Searcher::Searcher: поисковик запущен");
 	}
 
 	void Searcher::runHTTPServer_()

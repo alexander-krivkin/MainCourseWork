@@ -70,6 +70,8 @@ namespace ak
 		// GET
 		if ((request.method() == http::verb::get))
 		{
+			postLogMessage("HTTPServer::handleRequest_: отработка метода GET");
+
 			http::response<http::string_body> response{
 				http::status::ok, request.version() };
 
@@ -94,6 +96,8 @@ namespace ak
 		if ((request.method() == http::verb::post)
 			&& (request.target() == "/submit"))
 		{
+			postLogMessage("HTTPServer::handleRequest_: отработка метода POST");
+
 			http::response<http::string_body> response{
 				 http::status::ok, request.version() };
 
@@ -101,17 +105,19 @@ namespace ak
 			response.set(http::field::content_type, "text/html");
 			response.keep_alive(request.keep_alive());
 
-			// 1. Приведение к нижнему регистру и очистка текста до русских букв и пробелов
+			// 1. Приведение к нижнему регистру, удаление тэгов и очистка до букв и пробелов
 			std::string str{ request.body() };
 			str = urlDecode(str);
 			str = toLower(str);
-			str = toCyrillicWords(str);
+			str.erase(0, 8); // удаление "request="
+			str = eraseTags(str);
+			str = toLetters(str);
 
 			size_t strSize{};
 			do
 			{
 				strSize = str.size();
-				str = findAndReplaceRegex(str, "  ", " ");
+				str = replaceRegex(str, "  ", " ");
 			} while (strSize != str.size());
 
 			// 2. Выгрузка карты слов длиной от 3 до 32 символов включительно
@@ -141,6 +147,11 @@ namespace ak
 					<< "<br><a href =\"" << (*it).second.host
 					<< "\">" << (*it).second.host
 					<< "</a></li><br>";
+			}
+
+			if (responseStr.str().size() == 16)
+			{
+				responseStr << "<li>Результаты поиска отсутствуют</li><br>";
 			}
 			responseStr << "</ul></body></html>";
 

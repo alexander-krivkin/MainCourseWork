@@ -25,13 +25,13 @@ namespace ak
 
 	private:
 		void loadConfigFromFile_();
+		void runSearcher_();
 		void runCrawler_();
 		void waitAndStopCrawler_();
-		void runSearcher_();
 
 		std::unique_ptr<IniLoader> upIniLoader_{};
-		std::unique_ptr<Crawler> upCrawler_{};
 		std::unique_ptr<Searcher> upSearcher_{};
+		std::unique_ptr<Crawler> upCrawler_{};
 		GeneralState state_{};
 	};
 }

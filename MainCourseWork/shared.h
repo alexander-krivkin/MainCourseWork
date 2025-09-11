@@ -113,12 +113,19 @@ namespace ak
 		}
 	}
 
-	inline std::string findAndReplaceRegex(const std::string& str, const std::string& regex,
+	inline std::string replaceRegex(const std::string& str, const std::string& regex,
 		const std::string& replaceStr)
 	{
 		if (str == "") { return ""; }
 
 		return std::regex_replace(str, std::regex(regex), replaceStr);
+	}
+
+	inline std::string eraseTags(const std::string& str)
+	{
+		if (str == "") { return ""; }
+
+		return std::regex_replace(str, std::regex{ "<[^>]*>" }, "");
 	}
 
 	inline std::string toLower(const std::string& str)
@@ -184,7 +191,7 @@ namespace ak
 		return ret;
 	}
 
-	inline std::string toCyrillicWords(const std::string& str)
+	inline std::string toLetters(const std::string& str)
 	{
 		if (str == "") { return ""; }
 
@@ -224,7 +231,34 @@ namespace ak
 			{ 'ú' },
 			{ 'ý' },
 			{ 'þ' },
-			{ 'ÿ' }
+			{ 'ÿ' },
+
+			{ 'a' },
+			{ 'b' },
+			{ 'c' },
+			{ 'd' },
+			{ 'e' },
+			{ 'f' },
+			{ 'g' },
+			{ 'h' },
+			{ 'i' },
+			{ 'j' },
+			{ 'k' },
+			{ 'l' },
+			{ 'm' },
+			{ 'n' },
+			{ 'o' },
+			{ 'p' },
+			{ 'q' },
+			{ 'r' },
+			{ 's' },
+			{ 't' },
+			{ 'u' },
+			{ 'v' },
+			{ 'w' },
+			{ 'x' },
+			{ 'y' },
+			{ 'z' }
 		};
 
 		std::transform(ret.begin(), ret.end(), ret.begin(),
@@ -319,7 +353,7 @@ namespace ak
 
 		for (const auto& [coded, decoded] : trans)
 		{
-			ret = findAndReplaceRegex(ret, coded, decoded);
+			ret = replaceRegex(ret, coded, decoded);
 		}
 
 		return ret;

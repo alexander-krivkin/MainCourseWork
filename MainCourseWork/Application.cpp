@@ -11,9 +11,9 @@ namespace ak
 		try
 		{
 			loadConfigFromFile_();
+			runSearcher_();
 			runCrawler_();
 			waitAndStopCrawler_();
-			runSearcher_();
 		}
 		catch (const std::exception& ex)
 		{
@@ -59,6 +59,11 @@ namespace ak
 		postLogMessage("Application::loadConfigFromFile_: конфигурация загружена");
 	}
 
+	void Application::runSearcher_()
+	{
+		upSearcher_ = std::unique_ptr<Searcher>(new Searcher{ state_ });
+	}
+
 	void Application::runCrawler_()
 	{
 		upCrawler_ = std::unique_ptr<Crawler>(new Crawler{ state_ });
@@ -67,10 +72,5 @@ namespace ak
 	void Application::waitAndStopCrawler_()
 	{
 		upCrawler_->waitAndStop();
-	}
-
-	void Application::runSearcher_()
-	{
-		upSearcher_ = std::unique_ptr<Searcher>(new Searcher{ state_ });
 	}
 }

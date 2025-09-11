@@ -24,6 +24,7 @@ namespace ak
 	private:
 		void runHTTPServer_();
 
+		std::unique_ptr<std::jthread> upThread_{};
 		std::unique_ptr<HTTPServer> upHTTPServer_{};
 
 		GeneralState state_{};

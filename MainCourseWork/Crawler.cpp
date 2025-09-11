@@ -72,8 +72,9 @@ namespace ak
 
 	void Crawler::runThreadPull_()
 	{
-		uint32_t threadsCount = state_.maxThreads < std::thread::hardware_concurrency() ?
-			state_.maxThreads : std::thread::hardware_concurrency();
+		// ещё один поток нужен для сервера
+		uint32_t threadsCount = state_.maxThreads < (std::thread::hardware_concurrency() - 1) ?
+			state_.maxThreads : (std::thread::hardware_concurrency() - 1);
 		upThreadPull_ = std::unique_ptr<ThreadPull>(new ThreadPull{ threadsCount });
 	}
 
@@ -135,15 +136,34 @@ namespace ak
 
 			ref = tempStr.substr(0, middle);
 			tempStr = tempStr.substr(end + 4, tempStr.size() - 1);
-			middle = ref.find("/", 0);
 
-			ret.indexedHosts.insert(
-				{
-						host.level + 1,
-							ref.substr(0, middle),
-							ref.substr(middle, ref.size() - 1),
-							host.httpsPort
-				});
+			middle = ref.find("#", 0);
+			if (middle != std::string::npos)
+			{
+				ref = ref.substr(0, middle);
+			}
+
+			middle = ref.find("/", 0);
+			if (middle == std::string::npos)
+			{
+				ret.indexedHosts.insert(
+					{
+							host.level + 1,
+								ref.substr(0, ref.size() - 1),
+								"/",
+								host.httpsPort
+					});
+			}
+			else
+			{
+				ret.indexedHosts.insert(
+					{
+							host.level + 1,
+								ref.substr(0, middle),
+								ref.substr(middle, ref.size() - 1),
+								host.httpsPort
+					});
+			}
 		}
 
 		// 4. Выгрузка относительных ссылок HTTPS
@@ -158,9 +178,15 @@ namespace ak
 			end = tempStr.find("</a>", 0);
 
 			ref = tempStr.substr(0, middle);
-			if (ref[0] != '/') { ref = "/" + ref; }
 			tempStr = tempStr.substr(end + 4, tempStr.size() - 1);
 
+			middle = ref.find("#", 0);
+			if (middle != std::string::npos)
+			{
+				ref = ref.substr(0, middle);
+			}
+
+			if (ref[0] != '/') { ref = "/" + ref; }
 			ret.indexedHosts.insert(
 				{
 						host.level + 1,
@@ -175,17 +201,31 @@ namespace ak
 		end = str.find("</body>", start);
 		str = str.substr(start + 6, end - (start + 6));
 
-		// 6. Приведение к нижнему регистру и очистка текста до русских букв и пробелов
+		// 6. Удаление скриптов
+		while (true)
+		{
+			start = str.find("<script", 0);
+			if (start == std::string::npos) { break; }
+
+			end = str.find("</script>", start);
+			if (end == std::string::npos) { break; }
+
+			str.erase(start, end + 9);
+		}
+
+		// 7. Приведение к нижнему регистру, удаление тэгов и очистка до букв и пробелов
 		str = toLower(str);
-		str = toCyrillicWords(str);
+		str = eraseTags(str);
+		str = toLetters(str);
+
 		size_t strSize{};
 		do
 		{
 			strSize = str.size();
-			str = findAndReplaceRegex(str, "  ", " ");
+			str = replaceRegex(str, "  ", " ");
 		} while (strSize != str.size());
 
-		// 7. Выгрузка карты слов длиной от 3 до 32 символов включительно
+		// 8. Выгрузка карты слов длиной от 3 до 32 символов включительно
 		std::stringstream strS{ str };
 		std::vector<std::string> indexedWords{};
 		std::string word{};
