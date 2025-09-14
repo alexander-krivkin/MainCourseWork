@@ -37,7 +37,6 @@ namespace ak
 
 	private:
 		std::unique_ptr<pqxx::connection> upConnection_{};
-		std::unique_ptr<pqxx::work> upWork_{};
 		PostgresDb postgresDb_{};
 	};
 }

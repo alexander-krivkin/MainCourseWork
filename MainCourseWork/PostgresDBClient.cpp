@@ -12,7 +12,7 @@ namespace ak
 			<< " user = " << postgresDb_.dbUser
 			<< " password = " << postgresDb_.dbPassword;
 
-		upConnection_ = std::make_unique<pqxx::connection>(strS1.str());
+		upConnection_ = std::unique_ptr<pqxx::connection>(new pqxx::connection{ strS1.str() });
 
 		std::stringstream strS{};
 		strS << "PostgresDBClient::PostgresDBClient: установлено подключение к базе данных \"" << upConnection_->dbname() << "\"";
@@ -28,11 +28,11 @@ namespace ak
 		std::string str3{
 			"DROP TABLE IF EXISTS words CASCADE;" };
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		upWork_->exec(str1);
-		upWork_->exec(str2);
-		upWork_->exec(str3);
-		upWork_->commit();
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		upWork->exec(str1);
+		upWork->exec(str2);
+		upWork->exec(str3);
+		upWork->commit();
 
 		std::stringstream strS{};
 		strS << "PostgresDBClient::deleteTables: в базе данных \"" << upConnection_->dbname() << "\" таблицы удалены";
@@ -60,11 +60,21 @@ namespace ak
 			"PRIMARY KEY (host_id, word_id) "
 			"); " };
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		upWork_->exec(str1);
-		upWork_->exec(str2);
-		upWork_->exec(str3);
-		upWork_->commit();
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
+		{
+			upWork->exec(str1);
+			upWork->exec(str2);
+			upWork->exec(str3);
+			upWork->commit();
+		}
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::createTables: не удалось создать таблицы" << std::endl
+				<< "ошибка: " << ex.what();
+			throw(std::exception{ strS.str().c_str() });
+		}
 
 		std::stringstream strS{};
 		strS << "PostgresDBClient::deleteTables: в базе данных \"" << upConnection_->dbname() << "\" таблицы созданы";
@@ -78,9 +88,19 @@ namespace ak
 			"VALUES($1, $2) "
 			"ON CONFLICT DO NOTHING;" };
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		upWork_->exec(str1, pqxx::params{ host, hostTitle });
-		upWork_->commit();
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
+		{
+			upWork->exec(str1, pqxx::params{ host, hostTitle });
+			upWork->commit();
+		}
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::addHost: не удалось добавить хост" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::addHost: ok");
 	}
@@ -92,53 +112,58 @@ namespace ak
 			"WHERE host_id = "
 			"(SELECT id FROM hosts "
 			"WHERE host = $1);" };
-
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		upWork_->exec(str1, pqxx::params{ host });
-		upWork_->commit();
-
 		std::string str2{
 			"DELETE FROM hosts "
 			"WHERE host = $1;" };
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		upWork_->exec(str2, pqxx::params{ host });
-		upWork_->commit();
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
+		{
+			upWork->exec(str1, pqxx::params{ host });
+			upWork->exec(str2, pqxx::params{ host });
+			upWork->commit();
+		}
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::deleteHost: не удалось удалить хост" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::deleteHost: ok");
 	}
 
 	void PostgresDBClient::addWords(const std::map<std::string, uint32_t>& words)
 	{
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		for (auto& word : words)
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
 		{
-			std::string str1{
-				"INSERT INTO words(word) "
-				"VALUES($1) "
-				"ON CONFLICT DO NOTHING;" };
+			for (auto& word : words)
+			{
+				std::string str1{
+					"INSERT INTO words(word) "
+					"VALUES($1) "
+					"ON CONFLICT DO NOTHING;" };
 
-			try
-			{
-				upWork_->exec(str1, pqxx::params{ word.first });
+				upWork->exec(str1, pqxx::params{ word.first });
 			}
-			catch (const pqxx::data_exception& ex)
-			{
-				std::stringstream strS{};
-				strS << "PostgresDBClient::addWords: не удалось добавить слово" << std::endl
-					<< "ошибка: " << ex.sqlstate() << std::endl
-					<< "запрос: " << ex.query();
-				postLogMessage(strS.str());
-			}
+			upWork->commit();
 		}
-		upWork_->commit();
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::addWords: не удалось добавить слова" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::addWords: ok");
 	}
 
 	void PostgresDBClient::deleteWords(const std::map<std::string, uint32_t>& words)
 	{
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
+		std::unique_ptr<pqxx::work> upWork1(new pqxx::work{ *upConnection_.get() });
 		for (auto& word : words)
 		{
 			std::string str1{
@@ -147,43 +172,63 @@ namespace ak
 				"(SELECT id FROM words "
 				"WHERE word = $1);" };
 
-			upWork_->exec(str1, pqxx::params{ word.first });
+			upWork1->exec(str1, pqxx::params{ word.first });
 		}
-		upWork_->commit();
-
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		for (auto& word : words)
+		upWork1->commit();
+		
+		std::unique_ptr<pqxx::work> upWork2(new pqxx::work{ *upConnection_.get() });
+		try
 		{
-			std::string str2{
-				"DELETE FROM words "
-				"WHERE word = $1;" };
+			for (auto& word : words)
+			{
+				std::string str2{
+					"DELETE FROM words "
+					"WHERE word = $1;" };
 
-			upWork_->exec(str2, pqxx::params{ word.first });
+				upWork2->exec(str2, pqxx::params{ word.first });
+			}
+			upWork2->commit();
 		}
-		upWork_->commit();
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::deleteWords: не удалось удалить слова" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::deleteWords: ok");
 	}
 
 	void PostgresDBClient::bindWordsToHost(const std::string& host, const std::map<std::string, uint32_t>& words)
 	{
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		for (auto& word : words)
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
 		{
-			std::string str1{
-				"INSERT INTO hosts_words(host_id, word_id, word_frequency) "
-				"VALUES("
-				"(SELECT id FROM hosts "
-				"WHERE host = $1), "
-				"(SELECT id FROM words "
-				"WHERE word = $2), "
-				"$3) "
-				"ON CONFLICT DO NOTHING;"
-		};
+			for (auto& word : words)
+			{
+				std::string str1{
+					"INSERT INTO hosts_words(host_id, word_id, word_frequency) "
+					"VALUES("
+					"(SELECT id FROM hosts "
+					"WHERE host = $1), "
+					"(SELECT id FROM words "
+					"WHERE word = $2), "
+					"$3) "
+					"ON CONFLICT DO NOTHING;"
+				};
 
-			upWork_->exec(str1, pqxx::params{ host, word.first, word.second });
+				upWork->exec(str1, pqxx::params{ host, word.first, word.second });
+			}
+			upWork->commit();
 		}
-		upWork_->commit();
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::bindWordsToHost: не удалось привязать слова к хосту" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::bindWordsToHost: ok");
 	}
@@ -200,24 +245,34 @@ namespace ak
 	{
 		std::map<std::string, uint32_t> words{};
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		for (const auto& [host_id, word_id, word] : upWork_->query<uint32_t, uint32_t, std::string>
-			("SELECT hosts.id, words.id, words.word FROM hosts_words "
-			"LEFT JOIN hosts ON hosts.id = hosts_words.host_id "
-			"LEFT JOIN words ON words.id = hosts_words.word_id "
-			"WHERE hosts.host = '" + host +
-			"';"))
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
 		{
-			for (const auto& [word_frequency] : upWork_->query<uint32_t>
-				("SELECT word_frequency FROM hosts_words "
-					"WHERE host_id = " + std::to_string(host_id) +
-					" AND word_id = " + std::to_string(word_id) +
-					";"))
+			for (const auto& [host_id, word_id, word] : upWork->query<uint32_t, uint32_t, std::string>
+				("SELECT hosts.id, words.id, words.word FROM hosts_words "
+					"LEFT JOIN hosts ON hosts.id = hosts_words.host_id "
+					"LEFT JOIN words ON words.id = hosts_words.word_id "
+					"WHERE hosts.host = '" + host +
+					"';"))
 			{
-				words[word] = word_frequency;
+				for (const auto& [word_frequency] : upWork->query<uint32_t>
+					("SELECT word_frequency FROM hosts_words "
+						"WHERE host_id = " + std::to_string(host_id) +
+						" AND word_id = " + std::to_string(word_id) +
+						";"))
+				{
+					words[word] = word_frequency;
+				}
 			}
+			upWork->commit();
 		}
-		upWork_->commit();
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::getHostWords: не удалось получить слова для хоста" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::getHostWords: ok");
 		return words;
@@ -233,19 +288,29 @@ namespace ak
 			"WHERE words.word = '" + word +
 			"';";
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		for (const auto& [host_id, word_id] : upWork_->query<uint32_t, uint32_t>(str1))
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
 		{
-			for (const auto& [word_frequency] : upWork_->query<uint32_t>
-				("SELECT word_frequency FROM hosts_words "
-					"WHERE host_id = " + std::to_string(host_id) +
-					" AND word_id = " + std::to_string(word_id) +
-					";"))
+			for (const auto& [host_id, word_id] : upWork->query<uint32_t, uint32_t>(str1))
 			{
-				ret[host_id] = word_frequency;
+				for (const auto& [word_frequency] : upWork->query<uint32_t>
+					("SELECT word_frequency FROM hosts_words "
+						"WHERE host_id = " + std::to_string(host_id) +
+						" AND word_id = " + std::to_string(word_id) +
+						";"))
+				{
+					ret[host_id] = word_frequency;
+				}
 			}
+			upWork->commit();
 		}
-		upWork_->commit();
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::getWordHostsIdFrequency: не удалось получить частоту слов для хоста" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		//postLogMessage("PostgresDBClient::getWordsHostsIdFrequency: ok");
 		return ret;
@@ -255,16 +320,26 @@ namespace ak
 	{
 		SearchResult ret{};
 
-		upWork_ = std::make_unique<pqxx::work>(*upConnection_.get());
-		for (const auto& [host, host_title] : upWork_->query<std::string, std::string>
-			("SELECT host, host_title FROM hosts "
-				"WHERE id = " + std::to_string(hostId) +
-				";"))
+		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
+		try
 		{
-			ret.host = host;
-			ret.hostTitle = host_title;
+			for (const auto& [host, host_title] : upWork->query<std::string, std::string>
+				("SELECT host, host_title FROM hosts "
+					"WHERE id = " + std::to_string(hostId) +
+					";"))
+			{
+				ret.host = host;
+				ret.hostTitle = host_title;
+			}
+			upWork->commit();
 		}
-		upWork_->commit();
+		catch (const std::exception& ex)
+		{
+			std::stringstream strS{};
+			strS << "PostgresDBClient::getHost: не удалось получить хост по его id" << std::endl
+				<< "ошибка: " << ex.what();
+			postLogMessage(strS.str());
+		}
 
 		return ret;
 	}
