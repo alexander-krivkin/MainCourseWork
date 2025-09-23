@@ -84,7 +84,6 @@ namespace ak
 	{
 		std::string host{};
 		std::string hostTitle{};
-		uint32_t searchWordsCount{};
 	};
 
 	inline std::string utf8ToCp1251(std::string const& str)

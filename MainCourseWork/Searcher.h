@@ -21,10 +21,9 @@ namespace ak
 		~Searcher() {}
 		Searcher& operator=(const Searcher& obj) = delete;
 
-	private:
-		void runHTTPServer_();
+		void waitAndStop();
 
-		std::unique_ptr<std::jthread> upThread_{};
+	private:
 		std::unique_ptr<HTTPServer> upHTTPServer_{};
 
 		GeneralState state_{};

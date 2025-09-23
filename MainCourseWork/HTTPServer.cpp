@@ -5,30 +5,51 @@ namespace ak
 {
 	HTTPServer::HTTPServer(const GeneralState& state) : state_(state)
 	{
+		upThread_ = std::unique_ptr<std::jthread>(
+			new std::jthread(std::bind(&HTTPServer::run_, this)));
+	}
+
+	HTTPServer::~HTTPServer()
+	{
+		if (!stopped_.load()) { stop(); }
+	}
+
+	void HTTPServer::run_()
+	{
+		std::stringstream strS{};
+		strS << "HTTPServer::HTTPServer: HTTP сервер запущен, адрес "
+			<< state_.httpServerAddress << ":" << state_.httpServerPort;
+		postLogMessage(strS.str());
+
+		stopped_.store(false);
 		auto const address = net::ip::make_address(state_.httpServerAddress);
 		auto const port = static_cast<unsigned short>(state_.httpServerPort);
 
 		net::io_context ioc{ 1 };
 		tcp::acceptor acceptor{ ioc, {address, port} };
 
-		std::stringstream strS{};
-		strS << "---------------------------------------------------------------------------";
-		postLogMessage(strS.str());
-		strS = {};
-		strS << "HTTPServer::HTTPServer: HTTP сервер запущен, ожидание соединения от клиента, адрес "
-			<< state_.httpServerAddress << ":" << state_.httpServerPort;
-		postLogMessage(strS.str());
-
 		while (true)
 		{
+			if (stopped_.load()) { break; }
+
 			tcp::socket socket{ ioc };
 			acceptor.accept(socket);
 			runSession_(socket);
 		}
 	}
 
+	void HTTPServer::stop()
+	{
+		stopped_.store(true);
+		upThread_->detach();
+
+		postLogMessage("HTTPServer::stop: HTTP сервер остановлен");
+	}
+
 	void HTTPServer::runSession_(tcp::socket& socket)
 	{
+		if (stopped_.load()) { return; }
+
 		beast::error_code ec;
 		beast::flat_buffer buffer{};
 
@@ -44,6 +65,7 @@ namespace ak
 				throw boost::system::system_error{ ec };
 			}
 
+			if (stopped_.load()) { break; }
 			auto msg = handleRequest_(request);
 
 			bool keep_alive = msg.keep_alive();
@@ -166,7 +188,7 @@ namespace ak
 		}
 	}
 
-	std::map<uint32_t, SearchResult> HTTPServer::getPostgresDbData_(
+	std::multimap<uint32_t, SearchResult> HTTPServer::getPostgresDbData_(
 		const std::set<std::string>& searchWords)
 	{
 		std::unique_ptr<PostgresDBClient> upPostgresDBClient(new PostgresDBClient{

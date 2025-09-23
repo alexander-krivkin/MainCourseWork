@@ -28,6 +28,7 @@ namespace ak
 		void runSearcher_();
 		void runCrawler_();
 		void waitAndStopCrawler_();
+		void waitAndStopSearcher_();
 
 		std::unique_ptr<IniLoader> upIniLoader_{};
 		std::unique_ptr<Searcher> upSearcher_{};

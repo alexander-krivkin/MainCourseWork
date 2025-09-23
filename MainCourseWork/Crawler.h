@@ -42,6 +42,5 @@ namespace ak
 		std::atomic<uint32_t> hostCount_;
 		std::atomic<bool> stopped_;
 		GeneralState state_{};
-		//mutable std::mutex mtx_{};
 	};
 }

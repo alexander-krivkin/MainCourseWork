@@ -14,6 +14,7 @@ namespace ak
 			runSearcher_();
 			runCrawler_();
 			waitAndStopCrawler_();
+			waitAndStopSearcher_();
 		}
 		catch (const std::exception& ex)
 		{
@@ -30,7 +31,7 @@ namespace ak
 			return EXIT_FAILURE;
 		}
 
-		std::cout << std::endl;
+		std::cout << std::endl << std::endl;
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), ((0 << 4) | 2));
 		system("pause");
 		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), ((0 << 4) | 15));
@@ -72,5 +73,10 @@ namespace ak
 	void Application::waitAndStopCrawler_()
 	{
 		upCrawler_->waitAndStop();
+	}
+
+	void Application::waitAndStopSearcher_()
+	{
+		upSearcher_->waitAndStop();
 	}
 }

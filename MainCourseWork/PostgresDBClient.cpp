@@ -136,26 +136,26 @@ namespace ak
 
 	void PostgresDBClient::addWords(const std::map<std::string, uint32_t>& words)
 	{
-		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
-		try
+		for (auto& word : words)
 		{
-			for (auto& word : words)
+			try
 			{
+				std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
 				std::string str1{
 					"INSERT INTO words(word) "
 					"VALUES($1) "
 					"ON CONFLICT DO NOTHING;" };
 
 				upWork->exec(str1, pqxx::params{ word.first });
+				upWork->commit();
 			}
-			upWork->commit();
-		}
-		catch (const std::exception& ex)
-		{
-			std::stringstream strS{};
-			strS << "PostgresDBClient::addWords: не удалось добавить слова" << std::endl
-				<< "ошибка: " << ex.what();
-			postLogMessage(strS.str());
+			catch (const std::exception& ex)
+			{
+				std::stringstream strS{};
+				strS << "PostgresDBClient::addWords: не удалось добавить слово" << std::endl
+					<< "ошибка: " << ex.what();
+				postLogMessage(strS.str());
+			}
 		}
 
 		//postLogMessage("PostgresDBClient::addWords: ok");
@@ -175,7 +175,7 @@ namespace ak
 			upWork1->exec(str1, pqxx::params{ word.first });
 		}
 		upWork1->commit();
-		
+
 		std::unique_ptr<pqxx::work> upWork2(new pqxx::work{ *upConnection_.get() });
 		try
 		{
@@ -202,32 +202,32 @@ namespace ak
 
 	void PostgresDBClient::bindWordsToHost(const std::string& host, const std::map<std::string, uint32_t>& words)
 	{
-		std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
-		try
+		for (auto& word : words)
 		{
-			for (auto& word : words)
+			try
 			{
+				std::unique_ptr<pqxx::work> upWork(new pqxx::work{ *upConnection_.get() });
 				std::string str1{
-					"INSERT INTO hosts_words(host_id, word_id, word_frequency) "
-					"VALUES("
-					"(SELECT id FROM hosts "
-					"WHERE host = $1), "
-					"(SELECT id FROM words "
-					"WHERE word = $2), "
-					"$3) "
-					"ON CONFLICT DO NOTHING;"
+				"INSERT INTO hosts_words(host_id, word_id, word_frequency) "
+				"VALUES("
+				"(SELECT id FROM hosts "
+				"WHERE host = $1), "
+				"(SELECT id FROM words "
+				"WHERE word = $2), "
+				"$3) "
+				"ON CONFLICT DO NOTHING;"
 				};
 
 				upWork->exec(str1, pqxx::params{ host, word.first, word.second });
+				upWork->commit();
 			}
-			upWork->commit();
-		}
-		catch (const std::exception& ex)
-		{
-			std::stringstream strS{};
-			strS << "PostgresDBClient::bindWordsToHost: не удалось привязать слова к хосту" << std::endl
-				<< "ошибка: " << ex.what();
-			postLogMessage(strS.str());
+			catch (const std::exception& ex)
+			{
+				std::stringstream strS{};
+				strS << "PostgresDBClient::bindWordsToHost: не удалось привязать слово к хосту" << std::endl
+					<< "ошибка: " << ex.what();
+				postLogMessage(strS.str());
+			}
 		}
 
 		//postLogMessage("PostgresDBClient::bindWordsToHost: ok");
@@ -344,28 +344,24 @@ namespace ak
 		return ret;
 	}
 
-	std::map<uint32_t, SearchResult> PostgresDBClient::getSearchResults(const std::set<std::string>& searchWords)
+	std::multimap<uint32_t, SearchResult> PostgresDBClient::getSearchResults(const std::set<std::string>& searchWords)
 	{
-		std::map<uint32_t, SearchResult> ret{};       // <rating, search_result>
-		std::map<uint32_t, SearchResult> tempHost{};  // <host_id, search_result>
-		std::map<uint32_t, uint32_t> tempRating{};    // <host_id, rating>
+		std::multimap<uint32_t, SearchResult> ret{};        // <rating, search_result>
+		//std::map<SearchResult, uint32_t> searchRatingMap{}; // <search_result, rating>
+		std::map<uint32_t, uint32_t> ratingMap{};       // <host_id, rating>
 
 		for (const auto& searchWord : searchWords)
 		{
 			auto hostsIdFrequency = getWordHostsIdFrequency(searchWord);
 			for (const auto& [host_id, rating] : hostsIdFrequency)
 			{
-				tempRating[host_id] += rating;
-				tempHost[host_id].searchWordsCount++;
+				ratingMap[host_id] += rating;
 			}
 		}
 
-		for (const auto& [host_id, rating] : tempRating)
+		for (const auto& [host_id, rating] : ratingMap)
 		{
-			if (tempHost[host_id].searchWordsCount == searchWords.size())
-			{
-				ret[rating] = getHost(host_id);
-			}
+			ret.insert({ rating, getHost(host_id) });
 		}
 
 		return ret;

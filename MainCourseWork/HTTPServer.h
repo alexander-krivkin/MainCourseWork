@@ -29,14 +29,20 @@ namespace ak
         HTTPServer() = delete;
         explicit HTTPServer(const GeneralState& state);
         explicit HTTPServer(const HTTPServer& obj) = delete;
-        ~HTTPServer() {}
+        ~HTTPServer();
         HTTPServer& operator=(const HTTPServer& obj) = delete;
 
+        void stop();
+
     private:
+        void run_();
         void runSession_(tcp::socket& socket);
         http::message_generator handleRequest_(http::request<http::string_body>& request);
-        std::map<uint32_t, SearchResult> getPostgresDbData_(const std::set<std::string>&searchWords);
+        std::multimap<uint32_t, SearchResult> getPostgresDbData_(const std::set<std::string>&searchWords);
 
+        std::unique_ptr<std::jthread> upThread_{};
+
+        std::atomic<bool> stopped_;
         GeneralState state_{};
     };
 }

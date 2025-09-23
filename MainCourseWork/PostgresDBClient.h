@@ -33,7 +33,7 @@ namespace ak
 		std::map<std::string, uint32_t> getHostWords(const std::string& host);
 		std::map<uint32_t, uint32_t> getWordHostsIdFrequency(const std::string& word);
 		SearchResult getHost(uint32_t hostId);
-		std::map<uint32_t, SearchResult> getSearchResults(const std::set<std::string>& searchWords);
+		std::multimap<uint32_t, SearchResult> getSearchResults(const std::set<std::string>& searchWords);
 
 	private:
 		std::unique_ptr<pqxx::connection> upConnection_{};

@@ -17,12 +17,11 @@ namespace ak
 
 		Host indexedHost = { 0, state_.httpsHost, state_.httpsHostParams, state_.httpsPort };
 		upThreadPull_->submit(std::bind(&Crawler::parseHost, this, indexedHost));
-		//parseHost(indexedHost);
 	}
 
 	Crawler::~Crawler()
 	{
-		if (!stopped_.load()) stop();
+		if (!stopped_.load()) { stop(); }
 	}
 
 	void Crawler::parseHost(const Host host)
@@ -47,7 +46,6 @@ namespace ak
 		for (const auto& indexedHost : indexedHostData.indexedHosts)
 		{
 			upThreadPull_->submit(std::bind(&Crawler::parseHost, this, indexedHost));
-			//parseHost(indexedHost);
 		}
 	}
 

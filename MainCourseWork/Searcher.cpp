@@ -5,13 +5,21 @@ namespace ak
 {
 	Searcher::Searcher(const GeneralState& state) : state_(state)
 	{
-		upThread_ = std::unique_ptr<std::jthread>(
-			new std::jthread(std::bind(&Searcher::runHTTPServer_, this)));
-		// postLogMessage("Searcher::Searcher: поисковик запущен");
+		upHTTPServer_ = std::unique_ptr<HTTPServer>(new HTTPServer{ state_ });
 	}
 
-	void Searcher::runHTTPServer_()
+	void Searcher::waitAndStop()
 	{
-		upHTTPServer_ = std::unique_ptr<HTTPServer>(new HTTPServer{ state_ });
+		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), ((0 << 4) | 2));
+		std::cout << std::endl << "Application::run: нажмите Esc для остановки сервера . . ." << std::endl;
+		SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), ((0 << 4) | 15));
+
+		while (true)
+		{
+			std::this_thread::sleep_for(std::chrono::milliseconds(100));
+			if (GetKeyState(VK_ESCAPE) & 0x8000) { break; }
+		}
+
+		upHTTPServer_->stop();
 	}
 }
