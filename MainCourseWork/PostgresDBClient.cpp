@@ -346,9 +346,8 @@ namespace ak
 
 	std::multimap<uint32_t, SearchResult> PostgresDBClient::getSearchResults(const std::set<std::string>& searchWords)
 	{
-		std::multimap<uint32_t, SearchResult> ret{};        // <rating, search_result>
-		//std::map<SearchResult, uint32_t> searchRatingMap{}; // <search_result, rating>
-		std::map<uint32_t, uint32_t> ratingMap{};       // <host_id, rating>
+		std::multimap<uint32_t, SearchResult> ret{}; // <rating, search_result>
+		std::map<uint32_t, uint32_t> ratingMap{};    // <host_id, rating>
 
 		for (const auto& searchWord : searchWords)
 		{

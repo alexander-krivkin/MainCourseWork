@@ -160,7 +160,12 @@ namespace ak
 			// 4. Вывод результатов поиска
 			std::stringstream responseStr{};
 
-			responseStr << "<html><body><ul>";
+			responseStr << "<html><body><br>Поисковый запрос: ";
+			for (const auto& searchWord : searchWords)
+			{
+				responseStr << searchWord << " ";
+			}
+			responseStr << "<br><br><ul>";
 
 			for (auto it = searchResults.rbegin(); it != searchResults.rend(); it++)
 			{
